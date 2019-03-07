@@ -36,5 +36,5 @@ class EncoderRNN(torch.nn.Module):
         # Linear layers
         logits = self.out(hidden)
         # Return output and final hidden state
-        return logits
+        return logits, hidden
 
