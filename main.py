@@ -70,9 +70,8 @@ def verification(test_batches, val_batches, topn, embedding, encoder, batch_size
         _, hidden = encoder(input_variable, len_variable)
         hiddens.append(hidden)
         real_labels.append(output_)
-
-    hiddens_list = [hiddens[i].detach().cpu().numpy() for i in range(len(hiddens))]
-    label_list = [real_labels[i].detach().cpu().numpy() for i in range(len(real_labels))]
+    hiddens_list = [hiddens[i].data.cpu().numpy() for i in range(len(hiddens))]
+    label_list = [real_labels[i].data.cpu().numpy() for i in range(len(real_labels))]
     tensor_hiddens_list = torch.tensor(hiddens_list).reshape(batch_size * len(hiddens_list),-1)
     tensor_label_list = torch.tensor(label_list).reshape(batch_size * len(label_list),-1)
     tensor_hiddens_list = tensor_hiddens_list.to(device)
@@ -88,8 +87,8 @@ def verification(test_batches, val_batches, topn, embedding, encoder, batch_size
         for k in range(hidden.shape[0]):
             diff_feature = tensor_hiddens_list - hidden[k]
             score_list = (diff_feature.mul(diff_feature).sum(1)) / diff_feature.shape[1]  
-            score_list = score_list.detach().cpu().numpy().tolist()
-            topn_score_list = sorted(score_list,reverse=True)[:topn]
+            score_list = score_list.data.cpu().numpy().tolist()
+            topn_score_list = sorted(score_list)[:topn]
             for score in topn_score_list:
                 index = score_list.index(score)
                 if tensor_label_list[index] == output_[k]:
@@ -106,14 +105,14 @@ if __name__ == '__main__':
     class_num           = 98611
 
     hidden_size         = 500
-    encoder_n_layers    =  2
+    encoder_n_layers    =  3
     dropout_ratio       = 0.1
     
     learning_rate       = 0.0001
     clip_grad           = 50
     batch_size          = 64
-    n_iteration         = 100
-    print_interval	= 10 
+    n_iteration         = 100000
+    print_interval	= 100 
     scale               = 30
     margin              = 0.35
 
@@ -156,14 +155,14 @@ if __name__ == '__main__':
         print('iteration: {}/{}, loss: {:.5f}'.format(iteration, n_iteration, loss))
 
         if iteration % print_interval == 0:
-                acc = 0
-                for i in range(len(val_batches)):
-                    val_batch = val_batches[i]
-                    acc_batch = evaluate(val_batch, embedding, encoder, batch_size, device)
-                    acc += acc_batch
-                encoder.train()
-                print('iteration: {}/{}, classification acc: {:.2f}'.format(iteration, n_iteration, acc/len(val_batches) ))
+               acc = 0
+               for i in range(len(val_batches)):
+                   val_batch = val_batches[i]
+                   acc_batch = evaluate(val_batch, embedding, encoder, batch_size, device)
+                   acc += acc_batch
+               encoder.train()
+               print('iteration: {}/{}, classification acc: {:.2f}'.format(iteration, n_iteration, acc/len(val_batches) ))
         if iteration % (print_interval * 2) == 0:
                 acc = verification(test_batches, val_batches, 2, embedding, encoder, batch_size, device)
                 encoder.train()
-                print('iteration: {}/{}, verification acc: {:.2f}'.format(iteration, n_iteration, acc))	
+                print('iteration: {}/{}, verification acc: {:.3f}'.format(iteration, n_iteration, acc))	
