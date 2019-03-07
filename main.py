@@ -58,7 +58,7 @@ def get_val_test_pairs(voc, val_test_pairs):
     return val_test_batches
 
 def verification(test_batches, val_batches, topn, embedding, encoder, batch_size, device):
-    topn = 2
+    topn = 4
     hiddens = []
     real_labels = []
     encoder.eval()
@@ -70,48 +70,46 @@ def verification(test_batches, val_batches, topn, embedding, encoder, batch_size
         _, hidden = encoder(input_variable, len_variable)
         hiddens.append(hidden)
         real_labels.append(output_)
-    hiddens_list = [hiddens[i].data.cpu().numpy() for i in range(len(hiddens))]
-    label_list = [real_labels[i].data.cpu().numpy() for i in range(len(real_labels))]
+    hiddens_list = [hiddens[i].detach().cpu().numpy() for i in range(len(hiddens))]
+    label_list = [real_labels[i].detach().cpu().numpy() for i in range(len(real_labels))]
     tensor_hiddens_list = torch.tensor(hiddens_list).reshape(batch_size * len(hiddens_list),-1)
     tensor_label_list = torch.tensor(label_list).reshape(batch_size * len(label_list),-1)
     tensor_hiddens_list = tensor_hiddens_list.to(device)
     
     acc_num = 0
-    for j in range(len(test_batches)):
+    test_batches_num = 10
+    for j in tqdm( range( test_batches_num ) ):
         input_, _, input_len, _, output_ = test_batches[i]
         input_variable  = input_.to(device)
         len_variable    = input_len.to(device)
         output_variable = output_.to(device)
-        encoder.eval()
         _, hidden = encoder(input_variable, len_variable)
         for k in range(hidden.shape[0]):
             diff_feature = tensor_hiddens_list - hidden[k]
             score_list = (diff_feature.mul(diff_feature).sum(1)) / diff_feature.shape[1]  
-            score_list = score_list.data.cpu().numpy().tolist()
+            score_list = score_list.detach().cpu().numpy().tolist()
             topn_score_list = sorted(score_list)[:topn]
             for score in topn_score_list:
                 index = score_list.index(score)
                 if tensor_label_list[index] == output_[k]:
                    acc_num += 1
                    break
-    return acc_num * 1.0 / len(test_batches) * batch_size
+    return acc_num * 1.0 / (test_batches_num * batch_size)
     
-
-
 if __name__ == '__main__':
     
     corpus_name         = 'iask'
-    datafile            = '../data/data_iask_20000.csv'
+    datafile            = '../data/data_iask.csv'
     class_num           = 98611
 
     hidden_size         = 500
-    encoder_n_layers    =  3
+    encoder_n_layers    = 2
     dropout_ratio       = 0.1
     
     learning_rate       = 0.0001
     clip_grad           = 50
     batch_size          = 64
-    n_iteration         = 100000
+    n_iteration         = 10000
     print_interval	= 100 
     scale               = 30
     margin              = 0.35
@@ -162,7 +160,7 @@ if __name__ == '__main__':
                    acc += acc_batch
                encoder.train()
                print('iteration: {}/{}, classification acc: {:.2f}'.format(iteration, n_iteration, acc/len(val_batches) ))
-        if iteration % (print_interval * 2) == 0:
+        if iteration % (print_interval * 1) == 0:
                 acc = verification(test_batches, val_batches, 2, embedding, encoder, batch_size, device)
                 encoder.train()
                 print('iteration: {}/{}, verification acc: {:.3f}'.format(iteration, n_iteration, acc))	
