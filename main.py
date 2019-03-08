@@ -95,7 +95,11 @@ def verification(test_batches, val_batches, topn, embedding, encoder, batch_size
                    acc_num += 1
                    break
     return acc_num * 1.0 / (test_batches_num * batch_size)
-    
+
+def get_data_iter(data):
+	for i in range(len(data)):
+		yield data[i]
+
 if __name__ == '__main__':
     
     corpus_name         = 'iask'
@@ -109,7 +113,7 @@ if __name__ == '__main__':
     learning_rate       = 0.0001
     clip_grad           = 50
     batch_size          = 64
-    n_iteration         = 10000
+    n_iteration         = 100000
     print_interval	= 100 
     scale               = 30
     margin              = 0.35
@@ -141,11 +145,13 @@ if __name__ == '__main__':
             continue
         training_batches.append(batch_data)
     
-    val_batches = get_val_test_pairs(voc, val_pairs)    
+    val_batches	 = get_val_test_pairs(voc, val_pairs)    
     test_batches = get_val_test_pairs(voc, test_pairs)    
+    train_iter   = get_data_iter(training_batches)
+    val_iter     = get_data_iter(val_batches)
+    
     print('Start training.\n')
-    for iteration in range(n_iteration):
-        training_batch = training_batches[iteration]
+    for iteration, training_batch in enumerate(train_iter):
         loss = train(training_batch, embedding, encoder, optimizer, clip_grad, criterion, batch_size, device)
         loss.backward()
         _ = torch.nn.utils.clip_grad_norm_(encoder.parameters(), clip_grad)
@@ -154,8 +160,7 @@ if __name__ == '__main__':
 
         if iteration % print_interval == 0:
                acc = 0
-               for i in range(len(val_batches)):
-                   val_batch = val_batches[i]
+               for i,val_batch in enumerate(val_iter):
                    acc_batch = evaluate(val_batch, embedding, encoder, batch_size, device)
                    acc += acc_batch
                encoder.train()
